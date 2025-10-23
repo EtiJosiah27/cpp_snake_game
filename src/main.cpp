@@ -5,14 +5,21 @@
 #include <deque>
 #include <cstdlib>   
 #include <ctime>     
+#include <vector>  
+#include <algorithm>   
+#include <utility> 
 
 enum class Dir { Up, Down, Left, Right };
 Dir dir = Dir::Right;
-Grid g(20, 20);
+const int GRID_HEIGHT = 20;
+const int GRID_WIDTH = 20;
+Grid g(GRID_HEIGHT, GRID_WIDTH);
 Snake s(10, 10);
 
 int foodX = rand() % 20;
 int foodY = rand() % 20;
+
+bool foodPresent = true;
 
 const char BODY_CH = '@'; 
 const char HEAD_CH = 'O'; 
@@ -26,6 +33,7 @@ void ncursesSetup(){
     cbreak();
     keypad(stdscr, TRUE);
     curs_set(FALSE);
+    srand(time(0));
 }
 
 std::pair<int, int> handleKeyUp(){
@@ -52,7 +60,50 @@ void moveSnake(std::pair<int, int> direction){
     if (direction.first == -2 || direction.second == -2) return;
     auto [tx, ty] = s.getTail();
     s.move(direction.first, direction.second);
+
+    auto [hx, hy] = s.getHead();
+    if(hx < 0 || hx >= GRID_WIDTH || hy < 0 || hy >= GRID_HEIGHT){
+        endwin();
+        std::cout << "Game Over! You hit the wall.\n";
+        exit(0);
+    }
+
+    int i = 0;
+    for (auto [x, y] : s.getBody()){
+        if(i == 0) {i++; continue;}
+        if(hx  == x && hy == y){
+            endwin();
+            std::cout << "Game over! You bit yourself";
+            exit(0);
+        }
+        i++;
+    }
+
     g.setCell(tx, ty, GRID_CH);
+}
+
+void updateFoodPosition(){
+        g.setCell(foodX, foodY, FOOD_CH);
+}
+
+void updateNewFoodPositions(){
+    while (true){
+        int x = rand() % 20;
+        int y = rand() % 20;
+
+        bool onSnake = false;
+        for (auto [sx, sy] : s.getBody()) {
+            if (sx == x && sy == y) { onSnake = true; break; }
+        }
+
+        if (!onSnake) {
+            foodX = x;
+            foodY = y;
+            break;
+        }
+    }
+    foodPresent = true;
+    g.setCell(foodX, foodY, FOOD_CH);  
 }
 
 void growSnake(std::pair<int, int> direction){
@@ -60,8 +111,10 @@ void growSnake(std::pair<int, int> direction){
     auto [hx, hy] = s.getHead();
     if (foodX == hx && foodY == hy){
         s.grow(direction.first, direction.second);
+        updateNewFoodPositions();
     }
 }
+
 
 bool handleKeyPress(){
     int ch = getch();
@@ -88,12 +141,6 @@ void updateCellState(){
     }
 }
 
-void updateFoodPosition(){
-    for (auto [x, y] : s.getBody()) {
-        g.setCell(foodX, foodY, FOOD_CH);
-    }
-}
-
 void initialSetUp(){
     s.grow(1, 0); 
     s.grow(1, 0); 
@@ -110,6 +157,7 @@ int main(){
         if (!handleKeyPress()) break;
         erase();
         updateCellState();
+        g.setCell(foodX, foodY, FOOD_CH);
         g.draw();
         refresh();
     }
