@@ -1,8 +1,6 @@
 #include "snake.h"
 
-Snake::Snake(int startX, int startY){
-    body.push_front({startX, startY});
-}
+Snake::Snake(){}
 
 void Snake::move(int dx, int dy){
     if (dx == 0 && dy == 0) return;
@@ -16,10 +14,25 @@ void Snake::move(int dx, int dy){
 
 void Snake::grow(int dx, int dy){
     if (dx == 0 && dy == 0) return;
-    auto[hx, hy] = body.front();
-    int newX = dx + hx;
-    int newY = dy + hy;
+    auto[hx, hy] = body.back();
+    int newX = hx - dx;
+    int newY = hy - dy;
 
+    body.push_back({newX, newY});
+}
+
+void Snake::growInitialSnake(int dx, int dy){
+    if (dx == 0 && dy == 0) return;
+
+    int newX = dx;
+    int newY = dy;
+
+    if (!body.empty()){
+        auto[hx, hy] = body.front();
+        newX = dx + hx;
+        newY = dy + hy;
+    }
+    
     body.push_front({newX, newY});
 }
 
@@ -33,4 +46,8 @@ std::pair<int, int> Snake::getTail() const {
 
 const std::deque<std::pair<int, int>>& Snake::getBody() const {
     return body;
+}
+
+void Snake::resetSnake(){
+    body.clear();
 }
