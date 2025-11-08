@@ -24,14 +24,21 @@ Snake s;
 int foodX = rand() % 20;
 int foodY = rand() % 20;
 
-bool foodPresent = true;
-
 const char BODY_CH = '@'; 
 const char HEAD_CH = 'O'; 
 const char GRID_CH = '.';
 const char FOOD_CH = '*';
 const std::vector<int> QUIT_CH = {'q', 'Q'}; 
 const std::vector<int> RESTART_CH = {'r', 'R'}; 
+const std::vector<int> PAUSE_CH = {'p', 'P'}; 
+
+
+bool foodPresent = true;
+bool paused = false;
+
+int timeoutValue = 500;
+int score = 0;
+int snakeLength = s.getSnakeLength();
 
 void ncursesSetup(){
     initscr();
@@ -40,20 +47,19 @@ void ncursesSetup(){
     keypad(stdscr, TRUE);
     curs_set(FALSE);
     srand(time(0));
-    timeout(500);
 }
 
-void moveSnake(std::pair<int, int> direction){
-    if (direction.first == -2 || direction.second == -2) return;
+void moveSnake(std::pair<int, int> directionPair){
+    if (directionPair.first == -2 || directionPair.second == -2) return;
     auto [tx, ty] = s.getTail();
-    s.move(direction.first, direction.second);
+    s.move(directionPair.first, directionPair.second);
     g.setCell(tx, ty, GRID_CH);
 }
 
 void handleCollision(){
     auto [hx, hy] = s.getHead();
     if(hx < 0 || hx > GRID_WIDTH - 1 || hy < 0 || hy > GRID_HEIGHT - 1){
-        mvprintw(GRID_HEIGHT + 1, 0, "Game over! You hit a wall");
+        // mvprintw(GRID_HEIGHT + 1, 0, "Game over! You hit a wall");
         gameState = GameState::GameOver;
     }
 
@@ -64,7 +70,7 @@ void handleCollision(){
     for (auto [x, y] : snakeBody){
         if(i == 0) {i++; continue;}
         if(hx == x && hy == y){
-            mvprintw(GRID_HEIGHT + 1, 0, "Game over! You bit yourself.");
+            // mvprintw(GRID_HEIGHT + 1, 0, "Game over! You bit yourself.");
             gameState = GameState::GameOver;
         }
         i++;
@@ -90,10 +96,40 @@ void clearSnake(){
     }
 }
 
+void growSnakeFacingRight(){
+    s.growInitialSnake(1, 0); 
+    s.growInitialSnake(1, 0); 
+}
+
+void growSnakeFacingLeft(){
+    s.growInitialSnake(-1, 0); 
+    // s.growInitialSnake(-1, 0); 
+}
+
+void growSnakeFacingUp(){
+    s.growInitialSnake(0, -1); 
+    s.growInitialSnake(0, -1); 
+}
+
+void growSnakeFacingDown(){
+    s.growInitialSnake(0, 1); 
+    s.growInitialSnake(0, 1); 
+}
+
 void createInitialSnake(){
     s.growInitialSnake(SNAKE_X, SNAKE_Y); 
-    s.growInitialSnake(1, 0); 
-    s.growInitialSnake(1, 0); 
+    for (auto [x, y] : s.getBody()){
+        std::cout << "before switch = x: " << x << " y: " << y << "\n";
+    }
+    switch (dir){
+        case Dir::Up: growSnakeFacingUp();
+        case Dir::Down: growSnakeFacingDown();
+        case Dir::Left: growSnakeFacingLeft();
+        case Dir::Right: growSnakeFacingRight();
+    }
+    for (auto [x, y] : s.getBody()){
+        std::cout << "after switch = x: " << x << " y: " << y << "\n";
+    }
 }
 
 void initialSetUp(){
@@ -102,6 +138,10 @@ void initialSetUp(){
     updateCellSnakePosition();
     gameState = GameState::InProgress;
     g.draw();
+    timeoutValue = 500;
+    timeout(timeoutValue);
+    score = 0;
+    snakeLength = s.getSnakeLength();
 }
 
 void updateNewFoodPositions(){
@@ -124,11 +164,34 @@ void updateNewFoodPositions(){
     g.setCell(foodX, foodY, FOOD_CH);  
 }
 
-void growSnake(std::pair<int, int> direction){
-    if (direction.first == -2 || direction.second == -2) return;
+void updateGameState(){
+    int prevLength = snakeLength;
+    int currLen = s.getSnakeLength();
+
+    if (currLen > prevLength) {
+        int prevTier = std::max(0, (prevLength - 1) / 5);
+        int currTier = std::max(0, (currLen - 1) / 5);
+
+        score += 10 * (currTier + 1);
+
+        if (currTier > prevTier) {
+            timeoutValue = std::max(60, timeoutValue - 50); 
+            timeout(timeoutValue);
+        }
+    }
+
+    snakeLength = currLen;
+
+    refresh();
+}
+
+void growSnake(std::pair<int, int> directionPair){
+    if (directionPair.first == -2 || directionPair.second == -2) return;
     auto [hx, hy] = s.getHead();
     if (foodX == hx && foodY == hy){
-        s.grow(direction.first, direction.second);
+        s.grow(directionPair.first, directionPair.second);
+        score+=10;
+        updateGameState();
         updateNewFoodPositions();
     }
 }
@@ -143,29 +206,48 @@ std::pair<int, int> dirDelta(){
     return {0, 0};
 }
 
+bool handleQuit(int ch) {
+    bool quitButtonPressed = std::find(QUIT_CH.begin(), QUIT_CH.end(), ch) != QUIT_CH.end();
+    return quitButtonPressed;
+}
+
+void handlePause(int ch){
+    bool pausedButtonPressed = std::find(PAUSE_CH.begin(), PAUSE_CH.end(), ch) != PAUSE_CH.end();
+    if (pausedButtonPressed) paused = !paused;
+}
+
+void handleRestart(int ch){
+    if(std::find(RESTART_CH.begin(), RESTART_CH.end(), ch) != RESTART_CH.end()) {
+        clearSnake();
+        s.resetSnake();
+        initialSetUp();
+    }
+}
+
+void handleDirection(int ch){
+    std::pair<int, int> directionPair = dirDelta();
+
+    if (ch == KEY_UP && dir != Dir::Down) dir = Dir::Up;
+    if (ch == KEY_DOWN && dir != Dir::Up) dir = Dir::Down;
+    if (ch == KEY_LEFT && dir != Dir::Right) dir = Dir::Left;
+    if (ch == KEY_RIGHT && dir != Dir::Left) dir = Dir::Right;
+
+    moveSnake(directionPair);
+    growSnake(directionPair);
+}
+
 bool handleKeyPress() {
     int ch = getch();
-    if (std::find(QUIT_CH.begin(), QUIT_CH.end(), ch) != QUIT_CH.end()) return false;
 
-    std::pair<int, int> direction = dirDelta();
+    if (handleQuit(ch)) return false;
+
+    handlePause(ch);
+    if (paused) return true;
 
     if (gameState == GameState::GameOver) {
-        if(std::find(RESTART_CH.begin(), RESTART_CH.end(), ch) != RESTART_CH.end()) {
-            clearSnake();
-            s.resetSnake();
-            initialSetUp();
-        }
+        handleRestart(ch);
     } else {
-        std::pair<int, int> direction = {-2, -2};
-        if (ch == KEY_UP && dir != Dir::Down) dir = Dir::Up;
-        if (ch == KEY_DOWN && dir != Dir::Up) dir = Dir::Down;
-        if (ch == KEY_LEFT && dir != Dir::Right) dir = Dir::Left;
-        if (ch == KEY_RIGHT && dir != Dir::Left) dir = Dir::Right;
-
-        direction = dirDelta();
-
-        moveSnake(direction);
-        growSnake(direction);
+        handleDirection(ch);
     }
 
     return true;
@@ -173,7 +255,7 @@ bool handleKeyPress() {
 
 int main(){
     ncursesSetup();
-    initialSetUp();
+    initialSetUp(); 
 
     while (true){
         if (!handleKeyPress()) break;
@@ -181,10 +263,10 @@ int main(){
         updateCellSnakePosition();
         g.setCell(foodX, foodY, FOOD_CH);
         g.draw();
+        mvprintw(GRID_HEIGHT + 3, 0, "Score: %d", score); 
         handleCollision();
         refresh();
     }
-
     endwin();
     return 0;
 }

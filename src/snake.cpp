@@ -51,3 +51,8 @@ const std::deque<std::pair<int, int>>& Snake::getBody() const {
 void Snake::resetSnake(){
     body.clear();
 }
+
+int Snake::getSnakeLength() const {
+    int length = getBody().size();
+    return length;
+}

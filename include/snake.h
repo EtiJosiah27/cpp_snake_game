@@ -20,6 +20,8 @@ class Snake{
 
         void resetSnake();
 
+        int getSnakeLength() const;
+
     private:
         std::deque<std::pair<int, int>> body;
 };
