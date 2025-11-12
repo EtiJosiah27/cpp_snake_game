@@ -59,7 +59,7 @@ void moveSnake(std::pair<int, int> directionPair){
 void handleCollision(){
     auto [hx, hy] = s.getHead();
     if(hx < 0 || hx > GRID_WIDTH - 1 || hy < 0 || hy > GRID_HEIGHT - 1){
-        // mvprintw(GRID_HEIGHT + 1, 0, "Game over! You hit a wall");
+        mvprintw(GRID_HEIGHT + 1, 0, "Game over! You hit a wall");
         gameState = GameState::GameOver;
     }
 
@@ -70,7 +70,7 @@ void handleCollision(){
     for (auto [x, y] : snakeBody){
         if(i == 0) {i++; continue;}
         if(hx == x && hy == y){
-            // mvprintw(GRID_HEIGHT + 1, 0, "Game over! You bit yourself.");
+            mvprintw(GRID_HEIGHT + 1, 0, "Game over! You bit yourself.");
             gameState = GameState::GameOver;
         }
         i++;
@@ -103,7 +103,7 @@ void growSnakeFacingRight(){
 
 void growSnakeFacingLeft(){
     s.growInitialSnake(-1, 0); 
-    // s.growInitialSnake(-1, 0); 
+    s.growInitialSnake(-1, 0); 
 }
 
 void growSnakeFacingUp(){
@@ -117,18 +117,12 @@ void growSnakeFacingDown(){
 }
 
 void createInitialSnake(){
-    s.growInitialSnake(SNAKE_X, SNAKE_Y); 
-    for (auto [x, y] : s.getBody()){
-        std::cout << "before switch = x: " << x << " y: " << y << "\n";
-    }
+    s.growInitialSnake(SNAKE_X, SNAKE_Y);
     switch (dir){
-        case Dir::Up: growSnakeFacingUp();
-        case Dir::Down: growSnakeFacingDown();
-        case Dir::Left: growSnakeFacingLeft();
-        case Dir::Right: growSnakeFacingRight();
-    }
-    for (auto [x, y] : s.getBody()){
-        std::cout << "after switch = x: " << x << " y: " << y << "\n";
+        case Dir::Up: growSnakeFacingUp(); break;
+        case Dir::Down: growSnakeFacingDown(); break;
+        case Dir::Left: growSnakeFacingLeft(); break;
+        case Dir::Right: growSnakeFacingRight(); break;
     }
 }
 
@@ -174,10 +168,10 @@ void updateGameState(){
 
         score += 10 * (currTier + 1);
 
-        if (currTier > prevTier) {
-            timeoutValue = std::max(60, timeoutValue - 50); 
-            timeout(timeoutValue);
-        }
+        // if (currTier > prevTier) {
+        //     timeoutValue = std::max(60, timeoutValue - 50); 
+        //     timeout(timeoutValue);
+        // }
     }
 
     snakeLength = currLen;
@@ -225,12 +219,12 @@ void handleRestart(int ch){
 }
 
 void handleDirection(int ch){
-    std::pair<int, int> directionPair = dirDelta();
-
     if (ch == KEY_UP && dir != Dir::Down) dir = Dir::Up;
     if (ch == KEY_DOWN && dir != Dir::Up) dir = Dir::Down;
     if (ch == KEY_LEFT && dir != Dir::Right) dir = Dir::Left;
     if (ch == KEY_RIGHT && dir != Dir::Left) dir = Dir::Right;
+
+    std::pair<int, int> directionPair = dirDelta();
 
     moveSnake(directionPair);
     growSnake(directionPair);
